@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flappy Bird Game</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      background-color: purple; /* רקע סגול */
+    }
+
+    #score {
+      position: absolute;
+      top: 10px;
+      right: 20px;
+      font-size: 30px;
+      color: yellow; /* צבע הניקוד צהוב */
+      font-family: Arial, sans-serif;
+    }
+
+    #startMessage {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 40px;
+      color: yellow;
+      font-family: Arial, sans-serif;
+      background-color: purple;
+      padding: 20px;
+      border-radius: 10px;
+      display: none;
+    }
+
+    #randomMessage {
+      position: absolute;
+      top: 30%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 50px;
+      color: yellow;
+      font-family: Arial, sans-serif;
+      background-color: purple;
+      padding: 20px;
+      border-radius: 10px;
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="gameCanvas"></canvas>
+  <div id="score">Score: 0</div>
+  <div id="startMessage">נסו להגיע ל-100 נקודות!</div>
+  <div id="randomMessage"></div>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const scoreElement = document.getElementById("score");
+    const startMessage = document.getElementById("startMessage");
+    const randomMessageElement = document.getElementById("randomMessage");
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let bird = {
+      x: 50,
+      y: canvas.height / 2,
+      width: 50,
+      height: 50,
+      gravity: 0.4, // כוח כבידה גבוה יותר
+      lift: -12, // כוח קפיצה קטן יותר
+      velocity: 0
+    };
+
+    let pipes = [];
+    let pipeWidth = 80;
+    let pipeGap = 300; // מרווח גדול יותר בין העמודים
+    let frameCount = 0;
+    let score = 0;
+    let levelMessageShown = false;
+    let gameStarted = false;
+
+    // מערך ההיגדים המצחיקים
+    const randomMessages = ["ברה", "ים בם בם", "מביךךך", "יאלללהההה (בערסוואתיות)"];
+    let nextRandomMessageScore = getRandomScore(); // מתי תופיע ההודעה הבאה
+
+    function getRandomScore() {
+      return Math.floor(Math.random() * 5) + 3; // רנדומלי בין 3 ל-7 נקודות
+    }
+
+    function showRandomMessage() {
+      let randomIndex = Math.floor(Math.random() * randomMessages.length);
+      randomMessageElement.textContent = randomMessages[randomIndex];
+      randomMessageElement.style.display = "block";
+
+      setTimeout(() => {
+        randomMessageElement.style.display = "none";
+      }, 2000); // ההודעה נעלמת אחרי 2 שניות
+    }
+
+    function drawBird() {
+      ctx.fillStyle = "yellow";
+      ctx.fillRect(bird.x, bird.y, bird.width, bird.height);
+    }
+
+    function updateBird() {
+      bird.velocity += bird.gravity;
+      bird.y += bird.velocity;
+      if (bird.y + bird.height > canvas.height) {
+        bird.y = canvas.height - bird.height;
+        bird.velocity = 0;
+      } else if (bird.y < 0) {
+        bird.y = 0;
+        bird.velocity = 0;
+      }
+    }
+
+    function drawPipes() {
+      for (let i = 0; i < pipes.length; i++) {
+        let pipe = pipes[i];
+        ctx.fillStyle = "yellow";
+        ctx.fillRect(pipe.x, 0, pipeWidth, pipe.top);
+        ctx.fillRect(pipe.x, canvas.height - pipe.bottom, pipeWidth, pipe.bottom);
+      }
+    }
+
+    function updatePipes() {
+      if (frameCount % 150 === 0) { // האטה את קצב יצירת העמודים (הפחתה)
+        let topHeight = Math.random() * (canvas.height - pipeGap);
+        let bottomHeight = canvas.height - topHeight - pipeGap;
+        pipes.push({ x: canvas.width, top: topHeight, bottom: bottomHeight, passed: false });
+      }
+
+      for (let i = 0; i < pipes.length; i++) {
+        pipes[i].x -= 3; // מהירות העמודים הוגדלה
+      }
+
+      pipes = pipes.filter(pipe => pipe.x + pipeWidth > 0);
+    }
+
+    function checkCollision() {
+      for (let i = 0; i < pipes.length; i++) {
+        let pipe = pipes[i];
+        if (bird.x + bird.width > pipe.x && bird.x < pipe.x + pipeWidth) {
+          if (bird.y < pipe.top || bird.y + bird.height > canvas.height - pipe.bottom) {
+            resetGame();
+          }
+        }
+
+        // הוספת ניקוד כשהציפור עוברת עמוד
+        if (!pipe.passed && pipe.x + pipeWidth < bird.x) {
+          pipe.passed = true;
+          score++;
+          scoreElement.textContent = "Score: " + score;
+
+          // בדיקה אם צריך להציג הודעה רנדומלית
+          if (score >= nextRandomMessageScore) {
+            showRandomMessage();
+            nextRandomMessageScore = score + getRandomScore(); // קביעת הניקוד להודעה הבאה
+          }
+        }
+      }
+    }
+
+    function resetGame() {
+      bird.y = canvas.height / 2;
+      bird.velocity = 0;
+      pipes = [];
+      score = 0;
+      scoreElement.textContent = "Score: 0";
+      levelMessageShown = false;
+      gameStarted = false;
+      nextRandomMessageScore = getRandomScore(); // אתחול הניקוד להודעה הבאה
+      startMessage.style.display = "block";
+    }
+
+    function gameLoop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawBird();
+      drawPipes();
+      updateBird();
+      updatePipes();
+      checkCollision();
+      frameCount++;
+      requestAnimationFrame(gameLoop);
+    }
+
+    window.addEventListener("keydown", () => {
+      if (!gameStarted) {
+        startMessage.style.display = "none";
+        gameStarted = true;
+      }
+      bird.velocity = bird.lift;
+    });
+
+    gameLoop();
+  </script>
+</body>
+
+</html>
